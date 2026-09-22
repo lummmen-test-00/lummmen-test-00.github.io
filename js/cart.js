@@ -101,6 +101,22 @@
                 '</div>' +
             '</div>';
         document.body.appendChild(modal);
+
+        document.getElementById('cartCheckoutBtn').addEventListener('click', function () {
+            checkout();
+        });
+    }
+
+    function checkout() {
+        saveCart([]);
+        renderCartBadge();
+
+        var body = document.getElementById('cartModalBody');
+        var totalEl = document.getElementById('cartModalTotal');
+        var checkoutBtn = document.getElementById('cartCheckoutBtn');
+        body.innerHTML = '<p class="text-center mb-0">Thank you!</p>';
+        totalEl.textContent = '0.00';
+        checkoutBtn.disabled = true;
     }
 
     function escapeHtml(str) {
