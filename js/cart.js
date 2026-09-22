@@ -63,17 +63,6 @@
         renderCartItems();
     }
 
-    function updateQuantity(sku, variantSku, quantity) {
-        var cart = getCart();
-        var item = findItem(cart, sku, variantSku);
-        if (item) {
-            item.quantity = Math.max(1, quantity);
-            saveCart(cart);
-            renderCartBadge();
-            renderCartItems();
-        }
-    }
-
     function cartCount() {
         return getCart().reduce(function (sum, item) { return sum + item.quantity; }, 0);
     }
@@ -107,7 +96,7 @@
                     '<div class="modal-body" id="cartModalBody"></div>' +
                     '<div class="modal-footer d-flex justify-content-between align-items-center">' +
                         '<h5 class="mb-0">Total: $<span id="cartModalTotal">0.00</span></h5>' +
-                        '<button type="button" class="btn btn-primary rounded-pill px-4">Checkout</button>' +
+                        '<button type="button" id="cartCheckoutBtn" class="btn btn-primary rounded-pill px-4" disabled>Checkout</button>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -137,7 +126,7 @@
                         '<div class="flex-grow-1">' +
                             '<h6 class="mb-1">' + escapeHtml(item.name) + '</h6>' +
                             '<small class="text-muted d-block mb-1">$' + item.price.toFixed(2) + ' each</small>' +
-                            '<input type="number" min="1" value="' + item.quantity + '" data-sku="' + escapeHtml(item.sku) + '" data-variant-sku="' + variantSkuAttr + '" class="cart-qty-input form-control form-control-sm" style="width:70px;">' +
+                            '<small class="text-muted d-block">Qty: ' + item.quantity + '</small>' +
                         '</div>' +
                         '<div class="text-end ms-3">' +
                             '<div class="fw-bold mb-1">$' + (item.price * item.quantity).toFixed(2) + '</div>' +
@@ -149,14 +138,14 @@
         }
         totalEl.textContent = cartTotal().toFixed(2);
 
+        var checkoutBtn = document.getElementById('cartCheckoutBtn');
+        if (checkoutBtn) {
+            checkoutBtn.disabled = cart.length === 0;
+        }
+
         body.querySelectorAll('.cart-remove-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 removeFromCart(btn.getAttribute('data-sku'), btn.getAttribute('data-variant-sku'));
-            });
-        });
-        body.querySelectorAll('.cart-qty-input').forEach(function (input) {
-            input.addEventListener('change', function () {
-                updateQuantity(input.getAttribute('data-sku'), input.getAttribute('data-variant-sku'), parseInt(input.value, 10) || 1);
             });
         });
     }
