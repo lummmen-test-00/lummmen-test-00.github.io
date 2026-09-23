@@ -2,6 +2,18 @@ var matomoLuxiSiteId = "62";
 var matomoLuxiSampleSize = "100";
 var _mtm = window._mtm = window._mtm || [];
 var _paq = window._paq = window._paq || [];
+(function () {
+  var cookieName = "matomoLuxiVisitorId";
+  var match = document.cookie.match(new RegExp("(?:^|; )" + cookieName + "=([^;]*)"));
+  var visitorId = match ? decodeURIComponent(match[1]) : "";
+  if (!visitorId) {
+    var bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    visitorId = Array.from(bytes, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    document.cookie = cookieName + "=" + visitorId + "; path=/; max-age=31536000; SameSite=Lax";
+  }
+  _paq.push(['setVisitorId', visitorId]);
+})();
 (async function () {
   document.documentElement.classList.add('lummmen-ab-test-loading');
   const lummmenStyleEl = document.createElement('style');
