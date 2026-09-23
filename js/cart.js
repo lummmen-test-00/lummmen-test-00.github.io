@@ -2,6 +2,10 @@
     'use strict';
 
     var CART_STORAGE_KEY = 'cart';
+    var LUMMMEN_ENDPOINT = 'https://europe-west1-ux-pro.cloudfunctions.net/processLuxiferDataEU';
+    var LUMMMEN_SITE_ID = '62';
+    var LUMMMEN_CATEGORY = 'tea';
+    var VIEW_EVENT_DELAY_MS = 500;
 
     function slugify(name) {
         return String(name)
@@ -9,6 +13,47 @@
             .trim()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/(^-|-$)/g, '');
+    }
+
+    function getVisitorId() {
+        var match = document.cookie.match(/(?:^|; )matomoLuxiVisitorId=([^;]*)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function sendLummmenData(data) {
+        var visitorId = getVisitorId();
+        if (!visitorId) {
+            console.log('matomo not ready');
+            return;
+        }
+        fetch(LUMMMEN_ENDPOINT, {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.assign({}, data, {
+                url: location.href,
+                siteId: LUMMMEN_SITE_ID,
+                visitorId: visitorId,
+                ts: Number((Date.now() / 1000).toFixed(3))
+            }))
+        });
+    }
+
+    function buildLummmenItem(name, price, quantity) {
+        var item = {
+            sku: slugify(name),
+            name: name,
+            category: LUMMMEN_CATEGORY,
+            price: price
+        };
+        if (quantity != null) item.quantity = quantity;
+        return item;
+    }
+
+    function generateOrderId() {
+        var bytes = new Uint8Array(8);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
     }
 
     function getCart() {
@@ -52,15 +97,26 @@
         saveCart(cart);
         renderCartBadge();
         renderCartItems();
+        sendLummmenData({
+            type: 'product_added_to_cart',
+            items: [buildLummmenItem(product.name, product.price, 1)]
+        });
     }
 
     function removeFromCart(sku, variantSku) {
+        var removed = findItem(getCart(), sku, variantSku);
         var cart = getCart().filter(function (item) {
             return !(item.sku === sku && (item.variantSku || null) === (variantSku || null));
         });
         saveCart(cart);
         renderCartBadge();
         renderCartItems();
+        if (removed) {
+            sendLummmenData({
+                type: 'product_removed_from_cart',
+                items: [buildLummmenItem(removed.name, removed.price, removed.quantity)]
+            });
+        }
     }
 
     function cartCount() {
@@ -108,6 +164,22 @@
     }
 
     function checkout() {
+        var cart = getCart();
+        var total = cartTotal();
+        if (cart.length > 0) {
+            sendLummmenData({
+                type: 'checkout_completed',
+                orderId: generateOrderId(),
+                revenue: total,
+                revenueSubtotal: total,
+                revenueTax: 0,
+                revenueShipping: 0,
+                revenueDiscount: 0,
+                items: cart.map(function (item) {
+                    return buildLummmenItem(item.name, item.price, item.quantity);
+                })
+            });
+        }
         saveCart([]);
         renderCartBadge();
 
@@ -193,8 +265,30 @@
         });
     }
 
+    function initViewEvents() {
+        var path = location.pathname;
+        if (path.indexOf('/products/') !== -1) {
+            var btn = document.querySelector('.add-to-cart-btn');
+            if (!btn) return;
+            setTimeout(function () {
+                sendLummmenData({
+                    type: 'product_viewed',
+                    items: [buildLummmenItem(
+                        btn.getAttribute('data-product-name'),
+                        parseFloat(btn.getAttribute('data-product-price'))
+                    )]
+                });
+            }, VIEW_EVENT_DELAY_MS);
+        } else if (/\/store(\.html)?$/.test(path)) {
+            setTimeout(function () {
+                sendLummmenData({ type: 'collection_viewed', title: 'all products' });
+            }, VIEW_EVENT_DELAY_MS);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initCartButton();
         initAddToCartButtons();
+        initViewEvents();
     });
 })();
